@@ -1,21 +1,9 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getDailyRequirements, calculateTaskXpGain, calculateTaskXpLoss, getLevelForXp, getLevelInfo } from '@solo-leveling/shared';
+import { getDailyRequirements, calculateTaskXpGain, calculateTaskXpLoss, getLevelForXp, getLevelInfo, getTodayDate, getDayRange } from '@solo-leveling/shared';
 import type { TaskCategory } from '@solo-leveling/shared';
 import { prisma } from '../index.js';
 
 export const dailyRouter = Router();
-
-function getTodayDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
-function getTodayRange(): { start: Date; end: Date } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  return { start, end };
-}
 
 async function updatePlayerXp(playerId: string, newXp: number) {
   const xp = Math.max(0, newXp);
@@ -55,10 +43,8 @@ async function applyMissedPenalties(player: Awaited<ReturnType<typeof getOrCreat
 
   for (const log of pastLogs) {
     const required = getDailyRequirements(log.level);
-    const [y, m, d] = log.date.split('-').map(Number);
-    const dayStart = new Date(y, m - 1, d, 0, 0, 0, 0);
-    const dayEnd   = new Date(y, m - 1, d, 23, 59, 59, 999);
-    const createdAt = new Date(y, m - 1, d, 12, 0, 0, 0); // noon — within the day's range
+    const { start: dayStart, end: dayEnd } = getDayRange(log.date);
+    const createdAt = new Date(dayStart.getTime() + 12 * 60 * 60 * 1000); // noon — within the day's range
 
     const dayTasks = await prisma.task.findMany({
       where: { playerId: player.id, createdAt: { gte: dayStart, lte: dayEnd } },
@@ -111,7 +97,7 @@ dailyRouter.get('/', async (_req: Request, res: Response, next: NextFunction) =>
       update: { level: player.level },
     });
 
-    const { start, end } = getTodayRange();
+    const { start, end } = getDayRange(today);
     const required = getDailyRequirements(player.level);
 
     const todayTasks = await prisma.task.findMany({

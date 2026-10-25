@@ -1,13 +1,8 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getLevelInfo, getLevelForXp, getLevelXpRates } from '@solo-leveling/shared';
+import { getLevelInfo, getLevelForXp, getLevelXpRates, getTodayDate } from '@solo-leveling/shared';
 import { prisma } from '../index.js';
 
 export const questRouter = Router();
-
-function getTodayDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 async function getOrCreatePlayer() {
   let player = await prisma.player.findFirst();

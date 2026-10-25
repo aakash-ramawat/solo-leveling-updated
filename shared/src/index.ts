@@ -192,3 +192,43 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+// --- Time ---
+// Every day in the System runs midnight to midnight India time, no matter
+// where the server or browser happens to run.
+
+export const APP_TIME_ZONE = 'Asia/Kolkata';
+const APP_UTC_OFFSET = '+05:30'; // India has no daylight saving time
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+// YYYY-MM-DD for the given instant, in India time
+export function getDateString(date: Date = new Date()): string {
+  const parts = Object.fromEntries(dateFormatter.formatToParts(date).map((p) => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function getTodayDate(): string {
+  return getDateString(new Date());
+}
+
+// First and last millisecond of a YYYY-MM-DD day, in India time
+export function getDayRange(date: string): { start: Date; end: Date } {
+  const start = new Date(`${date}T00:00:00.000${APP_UTC_OFFSET}`);
+  return { start, end: new Date(start.getTime() + DAY_MS - 1) };
+}
+
+export function addDays(date: string, days: number): string {
+  return getDateString(new Date(getDayRange(date).start.getTime() + days * DAY_MS));
+}
+
+// Milliseconds left until the current India-time day ends
+export function getMsUntilMidnight(now: Date = new Date()): number {
+  return getDayRange(getDateString(now)).end.getTime() + 1 - now.getTime();
+}

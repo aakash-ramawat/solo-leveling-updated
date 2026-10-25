@@ -5,7 +5,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/ui/PageHeader';
 import PlayerBanner from '../components/ui/PlayerBanner';
-import { TASK_CATEGORIES } from '@solo-leveling/shared';
+import { TASK_CATEGORIES, getTodayDate } from '@solo-leveling/shared';
 import type { TaskCategory } from '@solo-leveling/shared';
 
 const categoryStyles: Record<TaskCategory, { icon: string; color: string; glowColor: string }> = {
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const { player, loading: playerLoading, refetch: refetchPlayer } = usePlayer();
   const { daily, loading: dailyLoading, markTask, unmarkTask, refetch: refetchDaily } = useDaily();
   // subtitles keyed by `${category}-${slotIndex}`, persisted to localStorage for the current day
-  const todayKey = `subtitles_${new Date().toISOString().slice(0, 10)}`;
+  const todayKey = `subtitles_${getTodayDate()}`;
   const [subtitles, setSubtitles] = useState<Record<string, string>>(() => {
     try {
       return JSON.parse(localStorage.getItem(todayKey) ?? '{}');
