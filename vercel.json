@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "npm run build && npm run db:deploy",
+  "buildCommand": "npm run build && if [ \"$VERCEL_ENV\" = production ]; then npm run db:deploy; else echo 'Skipping database migrations: not a production deploy'; fi",
   "outputDirectory": "client/dist",
   "regions": ["sin1"],
   "rewrites": [

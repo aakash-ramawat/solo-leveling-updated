@@ -230,7 +230,7 @@ Without `APP_TOKEN` set, the local API is open and any access key unlocks the ap
    | `SUMMARY_KEY` | another long random string — for the read-only summary |
 
    Generate each secret with `openssl rand -hex 24`.
-4. Deploy. The build runs `prisma migrate deploy`, so the tables are created automatically.
+4. Deploy. Production builds (from `main`) run `prisma migrate deploy`, so the tables are created automatically. Preview builds for other branches skip migrations, so the live database only changes when you merge.
 5. **Bring over your old data (once):** on the computer with the old `solo.db`, *before* opening the new app, run
    `DATABASE_URL="<Neon direct URL>" npm run db:import -- /path/to/solo.db`
 6. Open the site on your phone, enter the access key, then **Add to Home Screen**.
