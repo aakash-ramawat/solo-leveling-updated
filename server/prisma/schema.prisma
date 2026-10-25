@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // rhel-openssl-3.0.x = Vercel's runtime
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection (used by the app)
+  directUrl = env("DIRECT_URL")   // direct connection (used by migrations)
 }
 
 model Player {
@@ -26,8 +28,9 @@ model Player {
 
 model DayLog {
   id       String @id @default(uuid())
-  date     String @unique // YYYY-MM-DD
+  date     String  @unique // YYYY-MM-DD
   level    Int
+  settled  Boolean @default(false) // missed-slot penalties already applied
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
 }

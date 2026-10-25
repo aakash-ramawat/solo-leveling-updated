@@ -1,32 +1,9 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getLevelInfo, getLevelForXp, getLevelXpRates } from '@solo-leveling/shared';
-import { prisma } from '../index.js';
+import { getLevelXpRates, getTodayDate } from '@solo-leveling/shared';
+import { prisma } from '../db.js';
+import { adjustPlayerXp, getOrCreatePlayer } from '../game.js';
 
 export const questRouter = Router();
-
-function getTodayDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
-async function getOrCreatePlayer() {
-  let player = await prisma.player.findFirst();
-  if (!player) {
-    const info = getLevelInfo(1);
-    player = await prisma.player.create({ data: { title: info.title } });
-  }
-  return player;
-}
-
-async function updatePlayerXp(playerId: string, newXp: number) {
-  const xp = Math.max(0, newXp);
-  const level = getLevelForXp(xp);
-  const info = getLevelInfo(level);
-  return prisma.player.update({
-    where: { id: playerId },
-    data: { xp, level, title: info.title },
-  });
-}
 
 // GET /api/quests — get today's quest (rolls once per day, 10% chance)
 questRouter.get('/', async (_req: Request, res: Response, next: NextFunction) => {
@@ -147,10 +124,15 @@ questRouter.post('/:id/complete', async (req: Request, res: Response, next: Next
       return;
     }
 
-    await prisma.activeQuest.update({
-      where: { id },
+    // Claim the quest first so a double tap can't reward it twice
+    const claimed = await prisma.activeQuest.updateMany({
+      where: { id, status: 'active' },
       data: { status: 'completed' },
     });
+    if (claimed.count === 0) {
+      res.status(404).json({ success: false, error: 'Active quest not found' });
+      return;
+    }
 
     if (activeQuest.questId) {
       await prisma.quest.delete({ where: { id: activeQuest.questId } }).catch(() => {});
@@ -158,10 +140,10 @@ questRouter.post('/:id/complete', async (req: Request, res: Response, next: Next
 
     const rates = getLevelXpRates(player.level);
     const rewardXp = rates.baseGain * 20;
-    await updatePlayerXp(player.id, player.xp + rewardXp);
+    await adjustPlayerXp(player.id, rewardXp);
     await prisma.player.update({
       where: { id: player.id },
-      data: { skipPasses: player.skipPasses + 1 },
+      data: { skipPasses: { increment: 1 } },
     });
 
     res.json({ success: true, data: { xpGained: rewardXp, skipPassEarned: true } });
@@ -187,14 +169,18 @@ questRouter.post('/:id/fail', async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    await prisma.activeQuest.update({
-      where: { id },
+    const claimed = await prisma.activeQuest.updateMany({
+      where: { id, status: 'active' },
       data: { status: 'failed' },
     });
+    if (claimed.count === 0) {
+      res.status(404).json({ success: false, error: 'Active quest not found' });
+      return;
+    }
 
     const rates = getLevelXpRates(player.level);
     const penaltyXp = rates.baseLoss * 30;
-    await updatePlayerXp(player.id, player.xp - penaltyXp);
+    await adjustPlayerXp(player.id, -penaltyXp);
 
     res.json({ success: true, data: { xpLost: penaltyXp } });
   } catch (err) {

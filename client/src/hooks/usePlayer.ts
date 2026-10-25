@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Player } from '@solo-leveling/shared';
+import { api } from '../api/client';
 
 export function usePlayer() {
   const [player, setPlayer] = useState<Player | null>(null);
@@ -7,9 +8,8 @@ export function usePlayer() {
 
   const fetchPlayer = async () => {
     try {
-      const res = await fetch('/api/player');
-      const json = await res.json();
-      if (json.success) setPlayer(json.data);
+      const json = await api.get<Player>('/player');
+      if (json.success && json.data) setPlayer(json.data);
     } catch (err) {
       console.error('Failed to fetch player:', err);
     } finally {

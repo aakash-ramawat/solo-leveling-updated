@@ -2,6 +2,7 @@
   "name": "solo-leveling",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "workspaces": [
     "client",
     "server",
@@ -14,10 +15,15 @@
     "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client",
     "db:migrate": "npm run db:migrate --workspace=server",
     "db:studio": "npm run db:studio --workspace=server",
-    "db:seed": "npm run db:seed --workspace=server"
+    "db:seed": "npm run db:seed --workspace=server",
+    "db:deploy": "npm run db:deploy --workspace=server",
+    "db:import": "npm run db:import --workspace=server --"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
     "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

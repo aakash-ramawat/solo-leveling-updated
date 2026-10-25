@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { api } from '../api/client';
 
 interface ActiveQuest {
   id: string;
@@ -25,9 +26,8 @@ export default function Quests() {
 
   const fetchQuests = useCallback(async () => {
     try {
-      const res = await fetch('/api/quests');
-      const json = await res.json();
-      if (json.success) setQuestData(json.data);
+      const json = await api.get<QuestData>('/quests');
+      if (json.success && json.data) setQuestData(json.data);
     } catch (err) {
       console.error('Failed to fetch quests:', err);
     } finally {
@@ -44,11 +44,7 @@ export default function Quests() {
     if (!newTitle.trim()) return;
     setAdding(true);
     try {
-      await fetch('/api/quests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle.trim() }),
-      });
+      await api.post('/quests', { title: newTitle.trim() });
       setNewTitle('');
     } catch (err) {
       console.error('Failed to add quest:', err);
@@ -59,7 +55,7 @@ export default function Quests() {
 
   const handleComplete = async (id: string) => {
     try {
-      await fetch(`/api/quests/${id}/complete`, { method: 'POST' });
+      await api.post(`/quests/${id}/complete`);
       await fetchQuests();
     } catch (err) {
       console.error('Failed to complete quest:', err);
@@ -68,7 +64,7 @@ export default function Quests() {
 
   const handleFail = async (id: string) => {
     try {
-      await fetch(`/api/quests/${id}/fail`, { method: 'POST' });
+      await api.post(`/quests/${id}/fail`);
       await fetchQuests();
     } catch (err) {
       console.error('Failed to fail quest:', err);

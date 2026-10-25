@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
     "start": "prisma migrate deploy && node dist/index.js",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:deploy": "prisma migrate deploy",
+    "db:import": "tsx scripts/import-sqlite.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -18,11 +21,9 @@
   "dependencies": {
     "@prisma/client": "^6.2.0",
     "@solo-leveling/shared": "*",
-    "cors": "^2.8.5",
     "express": "^4.21.0"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "prisma": "^6.2.0",
     "tsx": "^4.19.0",

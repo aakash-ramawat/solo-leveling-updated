@@ -20,7 +20,7 @@ This is not a productivity app.
 
 ## WHAT IS THIS?
 
-A locally hosted, self-improvement system built in the aesthetic of the *Solo Leveling* anime and manhwa. Every habit you build, every skill you sharpen, every day you push through — it translates into XP, rank advancement, and titles.
+A self-improvement system built in the aesthetic of the *Solo Leveling* anime and manhwa. Every habit you build, every skill you sharpen, every day you push through — it translates into XP, rank advancement, and titles.
 
 You start as an **E-Rank Hunter**. The weakest. The forgettable one.
 
@@ -179,10 +179,13 @@ When you advance, everything changes. The image. The color. The title. The Syste
 
 ## GETTING STARTED
 
+The System runs free on **Vercel** (app + API) with a **Neon** Postgres database. Neither needs a credit card. Every day runs midnight to midnight, India time (`Asia/Kolkata`).
+
 ### Prerequisites
 
-- Node.js 18+
-- npm 9+
+- Node.js 22
+- npm 10+
+- A free [Neon](https://neon.tech) database (for local development you can use the same one, or a second Neon branch)
 
 ### Setup
 
@@ -191,11 +194,14 @@ When you advance, everything changes. The image. The color. The title. The Syste
 git clone <repo-url>
 cd solo-leveling
 
-# Install all dependencies
+# Install all dependencies (also generates the Prisma client)
 npm install
 
-# Initialize the database
-npm run db:migrate
+# Point the server at your database
+cp server/.env.example server/.env   # then paste your Neon URLs into it
+
+# Create the tables
+npm run db:deploy
 
 # Seed with the starting player
 npm run db:seed
@@ -208,6 +214,33 @@ The System awakens at:
 - **Frontend:** http://localhost:3000
 - **API:** http://localhost:3001
 
+Without `APP_TOKEN` set, the local API is open and any access key unlocks the app.
+
+### Deploy (free)
+
+1. **Neon:** create a project in the **AWS Asia Pacific (Singapore)** region. Copy the *pooled* and the *direct* connection strings.
+2. **Vercel:** import this repository. Leave the framework as "Other"; `vercel.json` sets the build, output and routing.
+3. In Vercel → Settings → Environment Variables, add:
+
+   | Variable | Value |
+   |----------|-------|
+   | `DATABASE_URL` | Neon pooled connection string (add `&pgbouncer=true`) |
+   | `DIRECT_URL` | Neon direct connection string |
+   | `APP_TOKEN` | a long random string — the access key you type on the phone |
+   | `SUMMARY_KEY` | another long random string — for the read-only summary |
+
+   Generate each secret with `openssl rand -hex 24`.
+4. Deploy. The build runs `prisma migrate deploy`, so the tables are created automatically.
+5. **Bring over your old data (once):** on the computer with the old `solo.db`, *before* opening the new app, run
+   `DATABASE_URL="<Neon direct URL>" npm run db:import -- /path/to/solo.db`
+6. Open the site on your phone, enter the access key, then **Add to Home Screen**.
+
+### Read-only summary
+
+`GET /api/summary?key=<SUMMARY_KEY>` returns today's slots (required, done, failed, remaining), XP today, rank, title, XP to next rank, skip passes, today's quest, hours left before midnight and any missed-day penalties not yet applied. It never writes anything, so scheduled check-ins can read it safely.
+
+Missed-day penalties are applied when the app opens (`POST /api/daily/sync`), never by a read.
+
 ### Commands
 
 | Command | Description |
@@ -215,7 +248,9 @@ The System awakens at:
 | `npm run dev` | Start both client and server |
 | `npm run dev:client` | Start frontend only |
 | `npm run dev:server` | Start backend only |
-| `npm run db:migrate` | Run database migrations |
+| `npm run db:migrate` | Create a new migration during development |
+| `npm run db:deploy` | Apply migrations to the database |
+| `npm run db:import -- <solo.db>` | One-time copy of an old SQLite database |
 | `npm run db:seed` | Seed the database with starting player |
 | `npm run db:studio` | Open Prisma Studio (database GUI) |
 
@@ -225,10 +260,10 @@ The System awakens at:
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19 + TypeScript + Vite |
+| Frontend | React 19 + TypeScript + Vite (installable PWA) |
 | Styling | Tailwind CSS 3 |
-| Backend | Express 4 + TypeScript |
-| Database | SQLite via Prisma ORM |
+| Backend | Express 4 + TypeScript (Vercel serverless function) |
+| Database | Postgres (Neon) via Prisma ORM |
 | Monorepo | npm workspaces |
 
 ---

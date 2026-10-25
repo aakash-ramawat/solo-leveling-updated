@@ -1,51 +1,25 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getLevelInfo, getLevelForXp, getDailyRequirements } from '@solo-leveling/shared';
+import { getLevelInfo, getDailyRequirements, getTodayDate, getDateString, addDays } from '@solo-leveling/shared';
 import type { PlayerStats } from '@solo-leveling/shared';
-import { prisma } from '../index.js';
+import { prisma } from '../db.js';
+import { getOrCreatePlayer } from '../game.js';
 
 export const playerRouter = Router();
 
-function getTodayDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
-function daysBetween(start: Date, end: Date): number {
-  const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  return Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-}
-
-function dateToString(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
+// Read-only: days without a DayLog yet count at the current level
 async function computeStats(playerId: string, playerCreatedAt: Date, currentLevel: number): Promise<PlayerStats> {
-  let dayLogs = await prisma.dayLog.findMany({
+  const dayLogs: { date: string; level: number }[] = await prisma.dayLog.findMany({
     where: { playerId },
     orderBy: { date: 'asc' },
   });
 
-  const today = new Date();
-  const totalDays = daysBetween(playerCreatedAt, today);
+  const today = getTodayDate();
   const existingDates = new Set(dayLogs.map((d) => d.date));
 
-  const missingDays: { date: string; level: number; playerId: string }[] = [];
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(playerCreatedAt.getFullYear(), playerCreatedAt.getMonth(), playerCreatedAt.getDate() + i);
-    if (d > today) break;
-    const ds = dateToString(d);
+  for (let ds = getDateString(playerCreatedAt); ds <= today; ds = addDays(ds, 1)) {
     if (!existingDates.has(ds)) {
-      missingDays.push({ date: ds, level: currentLevel, playerId });
+      dayLogs.push({ date: ds, level: currentLevel });
     }
-  }
-
-  if (missingDays.length > 0) {
-    await prisma.dayLog.createMany({ data: missingDays });
-    dayLogs = await prisma.dayLog.findMany({
-      where: { playerId },
-      orderBy: { date: 'asc' },
-    });
   }
 
   let availableGrowth = 0;
@@ -53,7 +27,7 @@ async function computeStats(playerId: string, playerCreatedAt: Date, currentLeve
   let availableSelfCare = 0;
 
   for (const log of dayLogs) {
-    if (log.date > getTodayDate()) continue;
+    if (log.date > today) continue;
     const req = getDailyRequirements(log.level);
     availableGrowth += req.growth;
     availableHobby += req.hobby;
@@ -87,15 +61,7 @@ async function computeStats(playerId: string, playerCreatedAt: Date, currentLeve
 // Get or create the single player
 playerRouter.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    let player = await prisma.player.findFirst();
-
-    if (!player) {
-      const info = getLevelInfo(1);
-      player = await prisma.player.create({
-        data: { title: info.title },
-      });
-    }
-
+    const player = await getOrCreatePlayer();
     const info = getLevelInfo(player.level);
     const stats = await computeStats(player.id, player.createdAt, player.level);
 

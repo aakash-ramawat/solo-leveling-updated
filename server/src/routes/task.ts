@@ -1,18 +1,8 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { calculateTaskXpGain, calculateTaskXpLoss, getLevelForXp, getLevelInfo } from '@solo-leveling/shared';
+import { calculateTaskXpGain, calculateTaskXpLoss } from '@solo-leveling/shared';
 import type { TaskCategory } from '@solo-leveling/shared';
-import { prisma } from '../index.js';
-
-async function updatePlayerXp(playerId: string, newXp: number) {
-  const xp = Math.max(0, newXp);
-  const level = getLevelForXp(xp);
-  const info = getLevelInfo(level);
-
-  return prisma.player.update({
-    where: { id: playerId },
-    data: { xp, level, title: info.title },
-  });
-}
+import { prisma } from '../db.js';
+import { adjustPlayerXp } from '../game.js';
 
 export const taskRouter = Router();
 
@@ -105,10 +95,7 @@ taskRouter.put('/:id/complete', async (req: Request, res: Response, next: NextFu
       },
     });
 
-    const player = await prisma.player.findUnique({ where: { id: task.playerId } });
-    if (player) {
-      await updatePlayerXp(player.id, player.xp + task.xpGain);
-    }
+    await adjustPlayerXp(task.playerId, task.xpGain);
 
     res.json({ success: true, data: updatedTask });
   } catch (err) {
@@ -136,10 +123,7 @@ taskRouter.put('/:id/fail', async (req: Request, res: Response, next: NextFuncti
       data: { status: 'failed' },
     });
 
-    const player = await prisma.player.findUnique({ where: { id: task.playerId } });
-    if (player) {
-      await updatePlayerXp(player.id, player.xp - task.xpLoss);
-    }
+    await adjustPlayerXp(task.playerId, -task.xpLoss);
 
     res.json({ success: true, data: updatedTask });
   } catch (err) {
