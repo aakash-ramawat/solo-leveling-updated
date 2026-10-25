@@ -5,6 +5,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import PageHeader from '../components/ui/PageHeader';
 import PlayerBanner from '../components/ui/PlayerBanner';
+import { api } from '../api/client';
 import { TASK_CATEGORIES, getTodayDate } from '@solo-leveling/shared';
 import type { TaskCategory } from '@solo-leveling/shared';
 
@@ -64,11 +65,7 @@ export default function Dashboard() {
 
   const handleSkip = async (category: TaskCategory) => {
     try {
-      await fetch('/api/daily/skip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category }),
-      });
+      await api.post('/daily/skip', { category });
       await refetchDaily();
       await refetchPlayer();
     } catch (err) {

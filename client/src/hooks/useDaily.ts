@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { TaskCategory } from '@solo-leveling/shared';
+import { api } from '../api/client';
 
 interface CategoryCounts {
   total: number;
@@ -34,9 +35,8 @@ export function useDaily() {
 
   const fetchDaily = useCallback(async () => {
     try {
-      const res = await fetch('/api/daily');
-      const json = await res.json();
-      if (json.success) setDaily(json.data);
+      const json = await api.get<DailyData>('/daily');
+      if (json.success && json.data) setDaily(json.data);
     } catch (err) {
       console.error('Failed to fetch daily:', err);
     } finally {
@@ -50,11 +50,7 @@ export function useDaily() {
 
   const markTask = async (category: TaskCategory, done: boolean, subtitle?: string) => {
     try {
-      await fetch('/api/daily/mark', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, done, subtitle }),
-      });
+      await api.post('/daily/mark', { category, done, subtitle });
       await fetchDaily();
     } catch (err) {
       console.error('Failed to mark task:', err);
@@ -63,11 +59,7 @@ export function useDaily() {
 
   const unmarkTask = async (taskId: string) => {
     try {
-      await fetch('/api/daily/unmark', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
-      });
+      await api.post('/daily/unmark', { taskId });
       await fetchDaily();
     } catch (err) {
       console.error('Failed to unmark task:', err);
