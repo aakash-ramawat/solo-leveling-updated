@@ -27,8 +27,9 @@ model Player {
 
 model DayLog {
   id       String @id @default(uuid())
-  date     String @unique // YYYY-MM-DD
+  date     String  @unique // YYYY-MM-DD
   level    Int
+  settled  Boolean @default(false) // missed-slot penalties already applied
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
 }

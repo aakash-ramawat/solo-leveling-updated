@@ -1,11 +1,11 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PrismaClient } from '@prisma/client';
 import { playerRouter } from './routes/player.js';
 import { taskRouter } from './routes/task.js';
 import { dailyRouter } from './routes/daily.js';
 import { questRouter } from './routes/quest.js';
+import { summaryRouter } from './routes/summary.js';
 import { requireAppToken } from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,14 +14,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
-export const prisma = new PrismaClient();
-
 app.use(express.json());
 
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', name: 'Solo Leveling API' });
 });
+
+// Read-only check-in summary, protected by its own SUMMARY_KEY
+app.use('/api/summary', summaryRouter);
 
 // Everything below needs the app token
 app.use('/api', requireAppToken);

@@ -1,12 +1,14 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { getLevelInfo, getLevelForXp, getDailyRequirements, getTodayDate, getDateString, addDays } from '@solo-leveling/shared';
+import { getLevelInfo, getDailyRequirements, getTodayDate, getDateString, addDays } from '@solo-leveling/shared';
 import type { PlayerStats } from '@solo-leveling/shared';
-import { prisma } from '../index.js';
+import { prisma } from '../db.js';
+import { getOrCreatePlayer } from '../game.js';
 
 export const playerRouter = Router();
 
+// Read-only: days without a DayLog yet count at the current level
 async function computeStats(playerId: string, playerCreatedAt: Date, currentLevel: number): Promise<PlayerStats> {
-  let dayLogs = await prisma.dayLog.findMany({
+  const dayLogs: { date: string; level: number }[] = await prisma.dayLog.findMany({
     where: { playerId },
     orderBy: { date: 'asc' },
   });
@@ -14,19 +16,10 @@ async function computeStats(playerId: string, playerCreatedAt: Date, currentLeve
   const today = getTodayDate();
   const existingDates = new Set(dayLogs.map((d) => d.date));
 
-  const missingDays: { date: string; level: number; playerId: string }[] = [];
   for (let ds = getDateString(playerCreatedAt); ds <= today; ds = addDays(ds, 1)) {
     if (!existingDates.has(ds)) {
-      missingDays.push({ date: ds, level: currentLevel, playerId });
+      dayLogs.push({ date: ds, level: currentLevel });
     }
-  }
-
-  if (missingDays.length > 0) {
-    await prisma.dayLog.createMany({ data: missingDays });
-    dayLogs = await prisma.dayLog.findMany({
-      where: { playerId },
-      orderBy: { date: 'asc' },
-    });
   }
 
   let availableGrowth = 0;
@@ -68,15 +61,7 @@ async function computeStats(playerId: string, playerCreatedAt: Date, currentLeve
 // Get or create the single player
 playerRouter.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    let player = await prisma.player.findFirst();
-
-    if (!player) {
-      const info = getLevelInfo(1);
-      player = await prisma.player.create({
-        data: { title: info.title },
-      });
-    }
-
+    const player = await getOrCreatePlayer();
     const info = getLevelInfo(player.level);
     const stats = await computeStats(player.id, player.createdAt, player.level);
 
