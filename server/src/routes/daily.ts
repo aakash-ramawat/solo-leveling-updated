@@ -1,8 +1,8 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { calculateTaskXpGain, calculateTaskXpLoss, getTodayDate } from '@solo-leveling/shared';
+import { calculateTaskXpGain, calculateTaskXpLoss, getDayRange, getTodayDate } from '@solo-leveling/shared';
 import type { TaskCategory } from '@solo-leveling/shared';
 import { prisma } from '../db.js';
-import { adjustPlayerXp, getDayProgress, getOrCreatePlayer, settleMissedDays } from '../game.js';
+import { adjustPlayerXp, getDayProgress, getOrCreatePlayer, isTaskCategory, settleMissedDays } from '../game.js';
 
 export const dailyRouter = Router();
 
@@ -35,7 +35,7 @@ dailyRouter.post('/mark', async (req: Request, res: Response, next: NextFunction
 
     const { category, done, subtitle } = req.body as { category: TaskCategory; done: boolean; subtitle?: string };
 
-    if (!category || done === undefined) {
+    if (!isTaskCategory(category) || typeof done !== 'boolean') {
       res.status(400).json({ success: false, error: 'category and done are required' });
       return;
     }
@@ -74,6 +74,13 @@ dailyRouter.post('/unmark', async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
+    // Undo only works for today's slots
+    const { start, end } = getDayRange(getTodayDate());
+    if (task.createdAt < start || task.createdAt > end) {
+      res.status(400).json({ success: false, error: 'Only today\'s challenges can be undone' });
+      return;
+    }
+
     // Delete first so a double tap can't revert the XP twice
     const deleted = await prisma.task.deleteMany({ where: { id: taskId } });
     if (deleted.count === 0) {
@@ -99,7 +106,7 @@ dailyRouter.post('/skip', async (req: Request, res: Response, next: NextFunction
     const player = await getOrCreatePlayer();
 
     const { category } = req.body as { category: TaskCategory };
-    if (!category) {
+    if (!isTaskCategory(category)) {
       res.status(400).json({ success: false, error: 'category is required' });
       return;
     }
